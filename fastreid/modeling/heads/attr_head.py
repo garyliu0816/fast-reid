@@ -62,8 +62,10 @@ class AttrHead(nn.Module):
 
         classifier_name = self.classifier.__class__.__name__
         # fmt: off
-        if classifier_name == 'Linear': cls_outputs = self.classifier(global_feat)
-        else:                           cls_outputs = self.classifier(global_feat, targets)
+        if classifier_name == 'Linear': 
+            cls_outputs = self.classifier(global_feat)
+        else:                           
+            cls_outputs = self.classifier(global_feat, targets)
         # fmt: on
 
         cls_outputs = self.bottleneck(cls_outputs)

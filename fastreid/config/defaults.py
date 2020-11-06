@@ -105,6 +105,12 @@ _C.MODEL.LOSSES.FL.ALPHA = 0.25
 _C.MODEL.LOSSES.FL.GAMMA = 2
 _C.MODEL.LOSSES.FL.SCALE = 1.0
 
+# Center Loss options
+_C.MODEL.LOSSES.CENTER = CN()
+_C.MODEL.LOSSES.CENTER.SIZE_AVERAGE = True
+_C.MODEL.LOSSES.CENTER.LR = 0.5
+_C.MODEL.LOSSES.CENTER.SCALE = 1.0
+
 # Path to a checkpoint file to be loaded to the model. You can find available models in the model zoo.
 _C.MODEL.WEIGHTS = ""
 

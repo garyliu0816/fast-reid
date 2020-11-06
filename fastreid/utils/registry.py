@@ -8,7 +8,7 @@ class Registry(object):
     """
     The registry that provides name -> object mapping, to support third-party
     users' custom modules.
-    To create a registry (e.g. a backbone registry):
+    To create a registry (e.g. a backbone registry):            # 注册自己的骨干模型
     .. code-block:: python
         BACKBONE_REGISTRY = Registry('BACKBONE')
     To register an object:
@@ -64,3 +64,6 @@ class Registry(object):
                 )
             )
         return ret
+
+
+

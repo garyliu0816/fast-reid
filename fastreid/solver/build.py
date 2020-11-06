@@ -22,6 +22,12 @@ def build_optimizer(cfg, model):
             weight_decay = cfg.SOLVER.WEIGHT_DECAY_BIAS
         params += [{"name": key, "params": [value], "lr": lr, "weight_decay": weight_decay, "freeze": False}]
 
+    # if "CenterLoss" in cfg.MODEL.LOSSES.NAME:
+    #     for key, value in model.center_loss.named_parameters():
+    #         lr = cfg.SOLVER.BASE_LR
+    #         weight_decay = cfg.SOLVER.WEIGHT_DECAY
+    #         params += [{"name": key, "params": [value], "lr": lr, "weight_decay": weight_decay, "freeze": False}]
+
     solver_opt = cfg.SOLVER.OPT
     # fmt: off
     if solver_opt == "SGD": opt_fns = getattr(optim, solver_opt)(params, momentum=cfg.SOLVER.MOMENTUM)
@@ -29,6 +35,26 @@ def build_optimizer(cfg, model):
     # fmt: on
     return opt_fns
 
+def build_optimizer(cfg, model):
+    params = []
+    for key, value in model.named_parameters():
+        if not value.requires_grad: continue
+
+        lr = cfg.SOLVER.BASE_LR
+        weight_decay = cfg.SOLVER.WEIGHT_DECAY
+        if "heads" in key:
+            lr *= cfg.SOLVER.HEADS_LR_FACTOR
+        if "bias" in key:
+            lr *= cfg.SOLVER.BIAS_LR_FACTOR
+            weight_decay = cfg.SOLVER.WEIGHT_DECAY_BIAS
+        params += [{"name": key, "params": [value], "lr": lr, "weight_decay": weight_decay, "freeze": False}]
+
+    solver_opt = cfg.SOLVER.OPT
+    # fmt: off
+    if solver_opt == "SGD": opt_fns = getattr(optim, solver_opt)(params, momentum=cfg.SOLVER.MOMENTUM)
+    else:                   opt_fns = getattr(optim, solver_opt)(params)
+    # fmt: on
+    return opt_fns
 
 def build_lr_scheduler(cfg, optimizer):
     scheduler_args = {

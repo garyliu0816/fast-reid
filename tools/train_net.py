@@ -10,7 +10,7 @@ import sys
 sys.path.append('.')
 
 from fastreid.config import get_cfg
-from fastreid.engine import DefaultTrainer, default_argument_parser, default_setup, launch
+from fastreid.engine import DefaultTrainer, CenterTrainer, default_argument_parser, default_setup, launch
 from fastreid.utils.checkpoint import Checkpointer
 
 
@@ -38,8 +38,10 @@ def main(args):
 
         res = DefaultTrainer.test(cfg, model)
         return res
-
-    trainer = DefaultTrainer(cfg)
+    if "CenterLoss" in cfg.MODEL.LOSSES.NAME:
+        trainer = DefaultTrainer(cfg)
+    else:
+        trainer = CenterTrainer(cfg)
     if args.finetune: Checkpointer(trainer.model).load(cfg.MODEL.WEIGHTS)  # load trained model to funetune
 
     trainer.resume_or_load(resume=args.resume)

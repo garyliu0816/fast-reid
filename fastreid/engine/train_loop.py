@@ -4,6 +4,7 @@ credit:
 https://github.com/facebookresearch/detectron2/blob/master/detectron2/engine/train_loop.py
 """
 
+from fastreid.modeling.losses import center_loss
 import logging
 import time
 import weakref
@@ -72,7 +73,7 @@ class HookBase:
         pass
 
 
-class TrainerBase:
+class TrainerBase: # 带钩的迭代训练器基类，这里唯一确定的是循环进行的，而数据加载器、优化器、模型都没有具体给出。
     """
     Base class for iterative trainer with hooks.
     The only assumption we made here is: the training runs in a loop.
@@ -188,7 +189,7 @@ class SimpleTrainer(TrainerBase):
         self.optimizer = optimizer
         self.amp_enabled = amp_enabled
 
-        if amp_enabled:
+        if amp_enabled: 
             # Creates a GradScaler once at the beginning of training.
             self.scaler = amp.GradScaler()
 
@@ -242,6 +243,127 @@ class SimpleTrainer(TrainerBase):
             wrap the optimizer with your custom `step()` method.
             """
             self.optimizer.step()
+
+    def _detect_anomaly(self, losses, loss_dict):
+        if not torch.isfinite(losses).all():
+            raise FloatingPointError(
+                "Loss became infinite or NaN at iteration={}!\nloss_dict = {}".format(
+                    self.iter, loss_dict
+                )
+            )
+
+    def _write_metrics(self, metrics_dict: dict):
+        """
+        Args:
+            metrics_dict (dict): dict of scalar metrics
+        """
+        metrics_dict = {
+            k: v.detach().cpu().item() if isinstance(v, torch.Tensor) else float(v)
+            for k, v in metrics_dict.items()
+        }
+        # gather metrics among all workers for logging
+        # This assumes we do DDP-style training, which is currently the only
+        # supported method in fastreid.
+        all_metrics_dict = comm.gather(metrics_dict)
+
+        if comm.is_main_process():
+            if "data_time" in all_metrics_dict[0]:
+                # data_time among workers can have high variance. The actual latency
+                # caused by data_time is the maximum among workers.
+                data_time = np.max([x.pop("data_time") for x in all_metrics_dict])
+                self.storage.put_scalar("data_time", data_time)
+
+            # average the rest metrics
+            metrics_dict = {
+                k: np.mean([x[k] for x in all_metrics_dict]) for k in all_metrics_dict[0].keys()
+            }
+            total_losses_reduced = sum(loss for loss in metrics_dict.values())
+
+            self.storage.put_scalar("total_loss", total_losses_reduced)
+            if len(metrics_dict) > 1:
+                self.storage.put_scalars(**metrics_dict)
+
+
+class FixedTrainer(TrainerBase):
+    """
+    A Trainer with center loss
+    """
+
+    def __init__(self, model, data_loader, optimizer, global_lr, center_lr, center_loss_weight, amp_enabled):
+        """
+        Args:
+            model: a torch Module. Takes a data from data_loader and returns a
+                dict of heads.
+            data_loader: an iterable. Contains data to be used to call model.
+            optimizer: a torch optimizer.
+        """
+        super().__init__()
+
+        """
+        We set the model to training mode in the trainer.
+        However it's valid to train a model that's in eval mode.
+        If you want your model (or a submodule of it) to behave
+        like evaluation during training, you can overwrite its train() method.
+        """
+        model.train()
+
+        self.model = model
+        self.data_loader = data_loader
+        self._data_loader_iter = iter(data_loader)
+        self.optimizer = optimizer
+        self.global_lr = global_lr
+        self.center_lr = center_lr
+        self.center_loss_weight = center_loss_weight
+        self.amp_enabled = amp_enabled
+
+        if amp_enabled: 
+            # Creates a GradScaler once at the beginning of training.
+            self.scaler = amp.GradScaler()
+
+    def run_step(self):
+        """
+        Implement the standard training logic described above.
+        """
+        assert self.model.training, "[CenterTrainer] model was changed to eval mode!"
+        start = time.perf_counter()
+
+        data = next(self._data_loader_iter)
+        data_time = time.perf_counter() - start
+
+        with amp.autocast(enabled=self.amp_enabled):
+            outs = self.model(data)
+
+            # Compute loss
+            if isinstance(self.model, DistributedDataParallel):
+                loss_dict = self.model.module.losses(outs)
+            else:
+                loss_dict = self.model.losses(outs)
+
+            losses = sum(loss_dict.values())
+
+        with torch.cuda.stream(torch.cuda.Stream()):
+            metrics_dict = loss_dict
+            metrics_dict["data_time"] = data_time
+            self._write_metrics(metrics_dict)
+            self._detect_anomaly(losses, loss_dict)
+
+        self.optimizer.zero_grad()
+
+        if self.amp_enabled:
+            self.scaler.scale(losses).backward()
+
+            for param in self.model.center_loss.parameters():
+                param.grad.data *= (self.center_lr / (self.center_loss_weight * self.global_lr))
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+
+        else:
+            losses.backward()
+
+            for param in self.model.center_loss.parameters():
+                param.grad.data *= (self.center_lr / (self.center_loss_weight * self.global_lr))
+            self.optimizer.step()
+            
 
     def _detect_anomaly(self, losses, loss_dict):
         if not torch.isfinite(losses).all():

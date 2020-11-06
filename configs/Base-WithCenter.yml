@@ -1,0 +1,10 @@
+_BASE_: "Base-Strongerbaseline.yml"
+
+MODEL: 
+  LOSSES:
+    NAME: ("CrossEntropyLoss", "TripletLoss", "CenterLoss")
+
+    CENTER:
+      SIZE_AVERAGE: True
+      LR: 0.5
+      SCALE: 0.00005

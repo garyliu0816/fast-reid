@@ -6,3 +6,8 @@ __pycache__
 logs/
 .ipynb_checkpoints
 logs
+nohup.out
+nohup1.out
+datasets/*
+运行命令.txt
+调试.ipynb

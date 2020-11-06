@@ -5,7 +5,7 @@
 """
 import torch
 
-from fastreid.utils.registry import Registry
+from fastreid.utils.registry import Registry   # 登记处
 
 META_ARCH_REGISTRY = Registry("META_ARCH")  # noqa F401 isort:skip
 META_ARCH_REGISTRY.__doc__ = """

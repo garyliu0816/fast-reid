@@ -28,6 +28,10 @@ class Baseline(nn.Module):
         # head
         self.heads = build_heads(cfg)
 
+        self.center_loss = CenterLoss(cfg)
+        if self._cfg.MODEL.DEVICE == "cuda":
+            self.center_loss = self.center_loss.cuda()
+
     @property
     def device(self):
         return self.pixel_mean.device
@@ -112,5 +116,11 @@ class Baseline(nn.Module):
                 self._cfg.MODEL.LOSSES.CIRCLE.MARGIN,
                 self._cfg.MODEL.LOSSES.CIRCLE.ALPHA,
             ) * self._cfg.MODEL.LOSSES.CIRCLE.SCALE
+
+        if "CenterLoss" in loss_names:
+            loss_dict['loss_center'] = self.center_loss(
+                pred_features,
+                gt_labels
+            ) * self._cfg.MODEL.LOSSES.CENTER.SCALE
 
         return loss_dict
