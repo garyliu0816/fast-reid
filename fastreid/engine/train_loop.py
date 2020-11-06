@@ -4,7 +4,7 @@ credit:
 https://github.com/facebookresearch/detectron2/blob/master/detectron2/engine/train_loop.py
 """
 
-from fastreid.modeling.losses import center_loss
+
 import logging
 import time
 import weakref
