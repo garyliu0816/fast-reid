@@ -6,7 +6,6 @@
 
 import torch
 import torch.nn.functional as F
-
 from fastreid.utils import comm
 from fastreid.layers import GatherLayer
 from .utils import concat_all_gather, euclidean_dist, normalize
@@ -18,7 +17,6 @@ def softmax_weights(dist, mask):
     Z = torch.sum(torch.exp(diff) * mask, dim=1, keepdim=True) + 1e-6  # avoid division by zero
     W = torch.exp(diff) * mask / Z
     return W
-
 
 def hard_example_mining(dist_mat, is_pos, is_neg):
     """For each anchor, find the hardest positive and negative sample.

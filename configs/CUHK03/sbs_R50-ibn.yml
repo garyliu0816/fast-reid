@@ -1,0 +1,11 @@
+_BASE_: "../Base-Strongerbaseline.yml"
+
+MODEL:
+  BACKBONE:
+    WITH_IBN: True
+
+DATASETS:
+  NAMES: ("CUHK03",)
+  TESTS: ("CUHK03",)
+
+OUTPUT_DIR: "logs/cuhk03/sbs_R50-ibn"

@@ -28,9 +28,10 @@ class Baseline(nn.Module):
         # head
         self.heads = build_heads(cfg)
 
-        self.center_loss = CenterLoss(cfg)
-        if self._cfg.MODEL.DEVICE == "cuda":
-            self.center_loss = self.center_loss.cuda()
+        if "CenterLoss" in cfg.MODEL.LOSSES.NAME:
+            self.center_loss = CenterLoss(cfg)
+            if self._cfg.MODEL.DEVICE == "cuda":
+                self.center_loss = self.center_loss.cuda()
 
     @property
     def device(self):
